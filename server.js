@@ -39,7 +39,7 @@ main = (async () => {
     keys.forEach(async (orderID) => {
         order = open_orders[orderID]
         console.log(order)
-        if (order.descr.pair == basePair && last_trade_price !== last_traded) {
+        if (order.descr.pair === basePair && order.descr.type === 'sell') {
             // Cancel open order
             cancel_order = await kraken.api('CancelOrder', { txid: orderID })
             if(cancel_order.error.length > 0) {
@@ -62,12 +62,15 @@ main = (async () => {
 
     xrp_balance = parseInt(xrp_balance.result.XXRP)
 
+    // https://www.kraken.com/help/api#private-user-trading
+    // Create a new order to sell at 140% and buy back at %100
     create_new_order = await kraken.api('AddOrder', {
         pair: basePair,
         type: 'sell',
         ordertype: 'limit',
         price: catch_price,
-        volume: xrp_balance
+        volume: xrp_balance,
+        close: { ordertype: 'limit', price: last_traded }
     })
 
     if(create_new_order.error.length > 0) {
@@ -82,6 +85,7 @@ main = (async () => {
 });
 
 new CronJob('0 */5 * * * *', function() {
+    // Bail out if errored, too many unknowns at this point
     if (!errored) {
         main()
     }
